@@ -1,11 +1,68 @@
+#
+# Default excludes
+#
+
+# Binaries
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+*.war
+*.ear
+*.sar
+*.class
+
+# Maven
 target/
-pom.xml.tag
-pom.xml.releaseBackup
+bin/
 pom.xml.versionsBackup
-pom.xml.next
+
+# Npm
+node_modules/
+
+# IntelliJ project files
+*.iml
+*.iws
+*.ipr
+.idea/
+
+#log file
+*.log
+
+# eclipse project file
+.settings/
+.classpath
+.project
+.factorypath
+
+# Log
+*.log
+
+# OS
+.DS_Store
+
+# Misc
+*.swp
+transaction.log
+
+chat-mongohq.properties
+rebel.xml
+.rebel.xml.bak
+target
+
 release.properties
-dependency-reduced-pom.xml
-buildNumber.properties
-.mvn/timing.properties
-# https://github.com/takari/maven-wrapper#usage-without-binary-jar
-.mvn/wrapper/maven-wrapper.jar
+*.releaseBackup
+
+data/chat-single-local.properties
+data/gatling/results/local/*
+
+copie.sh
+
+cache/data
+
+*.classpath
+*.project
