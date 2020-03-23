@@ -27,7 +27,7 @@ public class QMetryMigrationService {
         USERNAMES_TO_REPLACE.put("Farouk", "fsabbek");
         USERNAMES_TO_REPLACE.put("Nesrine", "nbenslima");
         USERNAMES_TO_REPLACE.put("Islem", "ichaieb");
-        USERNAMES_TO_REPLACE.put("malek", "mebnsalem");
+        USERNAMES_TO_REPLACE.put("malek", "mbensalem");
     }
 
     public static void main(String[] args) {
