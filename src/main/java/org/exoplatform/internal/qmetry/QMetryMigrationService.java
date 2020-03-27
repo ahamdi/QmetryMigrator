@@ -27,19 +27,26 @@ public class QMetryMigrationService {
         USERNAMES_TO_REPLACE.put("Farouk", "fsabbek");
         USERNAMES_TO_REPLACE.put("Nesrine", "nbenslima");
         USERNAMES_TO_REPLACE.put("Islem", "ichaieb");
-        USERNAMES_TO_REPLACE.put("malek", "mbensalem");
+        USERNAMES_TO_REPLACE.put("malek", USERNAME_REPLACEMENT);
     }
 
     public static void main(String[] args) {
-        String fileName = args[0];
-        if (fileName == null || fileName.isEmpty() || fileName.lastIndexOf(".xlsx") < 0) {
-            LOGGER.severe("Could not convert : Invalid Excel file");
+        if(args.length == 0) {
+            LOGGER.severe("Please provide the path of the file to convert !");
             return;
         }
-        String fileType = args[1];
-        if (fileType == null || fileType.isEmpty()) {
-            fileType = "TC";
+        String fileName = args[0];
+        if (fileName == null || fileName.isEmpty() || fileName.lastIndexOf(".xlsx") < 0) {
+            LOGGER.severe("Could not convert : Invalid file path" + fileName);
+            return;
         }
+        String fileType = "TC";
+        if(args.length >= 2) {
+            if (args[1] != null && !args[1].isEmpty()) {
+                fileType = args[1];
+            }
+        }
+        LOGGER.info("File Type is "+ fileType);
         long startTime = System.currentTimeMillis();
         if (fileType.equalsIgnoreCase("TC")) {
             LOGGER.info(String.format("Reading Test Cases from file %s", fileName));
@@ -132,15 +139,39 @@ public class QMetryMigrationService {
         requirement.setREQ_VERSION_CATEGORY("CAT_USER_STORY");
         requirement.setREQ_VERSION_CRITICALITY("MAJOR");
         requirement.setREQ_VERSION_STATUS("APPROVED");
+        requirement.setREQ_VERSION_NUM("1");
         requirement.setREQ_VERSION_CREATED_ON(readCell(row.getCell(indices.get("Created Date"))));
         requirement.setREQ_VERSION_DESCRIPTION(readCell(row.getCell(indices.get("Requirement Description"))));
-        String versionReference = readCell(row.getCell(indices.get("Requirement Summary")));
-        versionReference = versionReference.substring(0, versionReference.lastIndexOf(']') + 1);
+        String requirementSummary = readCell(row.getCell(indices.get("Requirement Summary")));
+        String versionReference = cleanVersionReference(requirementSummary);
         requirement.setREQ_VERSION_REFERENCE(versionReference);
+        String versionName = cleanVersionName(requirementSummary);
+        requirement.setREQ_VERSION_NAME(versionName);
         requirement.setREQ_VERSION_CREATED_BY(replaceOldUserNames(readCell(row.getCell(indices.get("createdByAlias")))));
         requirement.setREQ_VERSION_CREATED_ON(readCell(row.getCell(indices.get("Created Date"))));
-        requirement.setREQ_PATH(cleanPath(readCell(row.getCell(indices.get("Requirement Folder Path"))), requirement.getREQ_VERSION_REFERENCE()));
+        requirement.setREQ_PATH(cleanPath(readCell(row.getCell(indices.get("Requirement Folder Path"))), requirement.getREQ_VERSION_NAME()));
         return requirement;
+    }
+
+    private static String cleanVersionReference (String reference) {
+        reference = reference.replaceAll("/"," or ");
+        if(reference.contains(":")) {
+            return reference.substring(0, reference.lastIndexOf(':')).trim();
+        } else if (reference.contains("[") && reference.contains("]")) {
+            return reference.substring(0, reference.lastIndexOf(']') + 1).trim();
+        } else {
+            return reference.trim();
+        }
+    }
+    private static String cleanVersionName (String reference) {
+        reference = reference.replaceAll("/"," or ");
+        if(reference.contains(":")) {
+            return reference.substring(reference.lastIndexOf(':') + 1).trim();
+        } else if (reference.contains("[") && reference.contains("]")) {
+            return reference.substring(reference.lastIndexOf(']') + 2).trim();
+        } else {
+            return reference.trim();
+        }
     }
 
     private static List<TestCaseModel> readTCExcelFile(String fileName) {
@@ -159,8 +190,14 @@ public class QMetryMigrationService {
             for (Row row : sheet) {
                 if (i > 0) {
                     if (isNewTestCase(row, indices)) {
-                        if (testCase != null) {
-                            testCases.add(testCase);
+                        if(testCase != null) {
+                            if (!testCases.contains(testCase)) {
+                                testCases.add(testCase);
+                            } else if (isDifferentTCWithSameTCNameExists(testCases, testCase)) {
+                                testCase.setTC_NAME(testCase.getTC_NAME() + "Variante - " + testCases.size());
+                                testCase.setTC_PATH(testCase.getTC_PATH() + "Variante - " + testCases.size());
+                                testCases.add(testCase);
+                            }
                         }
                         testCase = createNewTestCase(row, indices);
                         testCase = addStepToPreviousTestCase(testCase, row, indices);
@@ -173,7 +210,13 @@ public class QMetryMigrationService {
                 }
                 i++;
             }
-            testCases.add(testCase);
+            if(! testCases.contains(testCase)) {
+                testCases.add(testCase);
+            } else if (isDifferentTCWithSameTCNameExists(testCases, testCase)) {
+                testCase.setTC_NAME(testCase.getTC_NAME() + "Variante - " + testCases.size());
+                testCase.setTC_PATH(testCase.getTC_PATH() + "Variante - " + testCases.size());
+                testCases.add(testCase);
+            }
             return testCases;
         } catch (FileNotFoundException e) {
             LOGGER.severe("Can not load the file " + fileName);
@@ -181,6 +224,15 @@ public class QMetryMigrationService {
             LOGGER.severe("Problem I/O");
         }
         return null;
+    }
+
+    private static boolean isDifferentTCWithSameTCNameExists(List<TestCaseModel> testCases, TestCaseModel testCaseModel) {
+        for(TestCaseModel testCase : testCases){
+            if(testCase.getTC_NAME().equalsIgnoreCase(testCaseModel.getTC_NAME()) && !testCase.equals(testCaseModel)){
+                return true;
+            }
+        }
+        return false;
     }
 
     private static TestCaseModel addStepToPreviousTestCase(TestCaseModel testCase, Row row, Map<String, Integer> indices) {
@@ -227,10 +279,14 @@ public class QMetryMigrationService {
         testCase.setTC_STATUS("APPROVED");
         testCase.setTC_CREATED_BY(replaceOldUserNames(readCell(row.getCell(indices.get("Created By")))));
         testCase.setTC_CREATED_ON(readCell(row.getCell(indices.get("Created Date"))));
-        testCase.setTC_NAME(readCell(row.getCell(indices.get("Summary"))));
+        testCase.setTC_NAME(cleanTCName(readCell(row.getCell(indices.get("Summary")))));
         testCase.setTC_PRE_REQUISITE(readCell(row.getCell(indices.get("Test Case Pre Condition"))));
         testCase.setTC_PATH(cleanPath(readCell(row.getCell(indices.get("Test Case Folder Path"))), testCase.getTC_NAME()));
         return testCase;
+    }
+
+    private static String cleanTCName(String tcName) {
+        return tcName.replace("/", " or ").trim();
     }
 
     private static String replaceOldUserNames(String userName) {
@@ -247,7 +303,7 @@ public class QMetryMigrationService {
         String toclean1 = "/PLF 5.3.x/Functional Test/";
         String toclean2 = "/PLF 5.3.x/";
         tcPATH = tcPATH.replace(toclean1, "/").replace(toclean2, "/");
-        return "/eXoPlatform" + tcPATH + "/" + tcName;
+        return "/eXoPlatform" + tcPATH.trim() + "/" + tcName.trim();
     }
 
 
@@ -285,8 +341,9 @@ public class QMetryMigrationService {
         }
         if (value == null || value.isEmpty()) {
             LOGGER.warning("value is Null or empty for cell column " + cell.getColumnIndex() + " row " + cell.getRowIndex());
+            return " ";
         }
-        return value;
+        return value.trim();
     }
 
 
@@ -304,21 +361,23 @@ public class QMetryMigrationService {
         cellPROJECT_NAME.setCellValue("PROJECT_NAME");
         Cell cellREQ_PATH = header.createCell(3);
         cellREQ_PATH.setCellValue("REQ_PATH");
-        Cell cellREQ_VERSION_REFERENCE = header.createCell(4);
+        Cell cellREQ_VERSION_NUM = header.createCell(4);
+        cellREQ_VERSION_NUM.setCellValue("REQ_VERSION_NUM");
+        Cell cellREQ_VERSION_REFERENCE = header.createCell(5);
         cellREQ_VERSION_REFERENCE.setCellValue("REQ_VERSION_REFERENCE");
-        Cell cellREQ_VERSION_NAME = header.createCell(5);
+        Cell cellREQ_VERSION_NAME = header.createCell(6);
         cellREQ_VERSION_NAME.setCellValue("REQ_VERSION_NAME");
-        Cell cellREQ_VERSION_CRITICALITY = header.createCell(6);
+        Cell cellREQ_VERSION_CRITICALITY = header.createCell(7);
         cellREQ_VERSION_CRITICALITY.setCellValue("REQ_VERSION_CRITICALITY");
-        Cell cellREQ_VERSION_CATEGORY = header.createCell(7);
+        Cell cellREQ_VERSION_CATEGORY = header.createCell(8);
         cellREQ_VERSION_CATEGORY.setCellValue("REQ_VERSION_CATEGORY");
-        Cell cellREQ_VERSION_STATUS = header.createCell(8);
+        Cell cellREQ_VERSION_STATUS = header.createCell(9);
         cellREQ_VERSION_STATUS.setCellValue("REQ_VERSION_STATUS");
-        Cell cellREQ_VERSION_DESCRIPTION = header.createCell(9);
+        Cell cellREQ_VERSION_DESCRIPTION = header.createCell(10);
         cellREQ_VERSION_DESCRIPTION.setCellValue("REQ_VERSION_DESCRIPTION");
-        Cell cellREQ_VERSION_CREATED_ON = header.createCell(10);
+        Cell cellREQ_VERSION_CREATED_ON = header.createCell(11);
         cellREQ_VERSION_CREATED_ON.setCellValue("REQ_VERSION_CREATED_ON");
-        Cell cellREQ_VERSION_CREATED_BY = header.createCell(11);
+        Cell cellREQ_VERSION_CREATED_BY = header.createCell(12);
         cellREQ_VERSION_CREATED_BY.setCellValue("REQ_VERSION_CREATED_BY");
         //Fill the content
         int i = 0;
@@ -334,21 +393,23 @@ public class QMetryMigrationService {
             cellREQ_PATH = newRow.createCell(3);
             cellREQ_PATH.setCellValue(requirement.getREQ_PATH());
             cellREQ_VERSION_REFERENCE = newRow.createCell(4);
+            cellREQ_VERSION_REFERENCE.setCellValue(requirement.getREQ_VERSION_NUM());
+            cellREQ_VERSION_REFERENCE = newRow.createCell(5);
             cellREQ_VERSION_REFERENCE.setCellValue(requirement.getREQ_VERSION_REFERENCE());
-            cellREQ_VERSION_NAME = newRow.createCell(5);
+            cellREQ_VERSION_NAME = newRow.createCell(6);
             cellREQ_VERSION_NAME.setCellValue(requirement.getREQ_VERSION_NAME());
-            cellREQ_VERSION_CRITICALITY = newRow.createCell(6);
+            cellREQ_VERSION_CRITICALITY = newRow.createCell(7);
             cellREQ_VERSION_CRITICALITY.setCellValue(requirement.getREQ_VERSION_CRITICALITY());
-            cellREQ_VERSION_CATEGORY = newRow.createCell(7);
+            cellREQ_VERSION_CATEGORY = newRow.createCell(8);
             cellREQ_VERSION_CATEGORY.setCellValue(requirement.getREQ_VERSION_CATEGORY());
-            cellREQ_VERSION_STATUS = newRow.createCell(8);
+            cellREQ_VERSION_STATUS = newRow.createCell(9);
             cellREQ_VERSION_STATUS.setCellValue(requirement.getREQ_VERSION_STATUS());
-            cellREQ_VERSION_DESCRIPTION = newRow.createCell(9);
+            cellREQ_VERSION_DESCRIPTION = newRow.createCell(10);
             cellREQ_VERSION_DESCRIPTION.setCellValue(requirement.getREQ_VERSION_DESCRIPTION());
 /*            cellREQ_VERSION_CREATED_ON = header.createCell(10);
             cellREQ_VERSION_CREATED_ON.setCellValue("REQ_VERSION_CREATED_ON");*/
-            createDateCell(workbook, newRow, 10, convertDate(requirement.getREQ_VERSION_CREATED_ON()));
-            cellREQ_VERSION_CREATED_BY = newRow.createCell(11);
+            createDateCell(workbook, newRow, 11, convertDate(requirement.getREQ_VERSION_CREATED_ON()));
+            cellREQ_VERSION_CREATED_BY = newRow.createCell(12);
             cellREQ_VERSION_CREATED_BY.setCellValue(requirement.getREQ_VERSION_CREATED_BY());
         }
         FileOutputStream outputStream = new FileOutputStream(convertedFileName);

@@ -9,6 +9,7 @@ public class RequirementModel {
     private String PROJECT_NAME;
     private String REQ_PATH;
     private String REQ_VERSION_REFERENCE;
+    private String REQ_VERSION_NUM;
     private String REQ_VERSION_NAME;
     private String REQ_VERSION_DESCRIPTION;
     private String REQ_VERSION_CRITICALITY;

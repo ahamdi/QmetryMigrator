@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Data
 public class TestCaseModel {
@@ -27,5 +28,26 @@ public class TestCaseModel {
     public TestCaseModel addStep(StepModel step) {
         this.steps.add(step);
         return this;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        TestCaseModel that = (TestCaseModel) o;
+        if(that.steps.size() != this.steps.size()){
+            return false;
+        }
+        for(StepModel step : steps){
+            if(! that.steps.contains(step)){
+                return false;
+            }
+        }
+        return Objects.equals(this.TC_NAME, that.TC_NAME);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(PROJECT_ID, ACTION, TC_PATH, PROJECT_NAME, TC_NUM, TC_REFERENCE, TC_NAME, TC_WEIGHT, TC_NATURE, TC_TYPE, TC_STATUS, TC_CREATED_ON, TC_CREATED_BY, TC_PRE_REQUISITE, TC_CUF_A1, steps);
     }
 }
