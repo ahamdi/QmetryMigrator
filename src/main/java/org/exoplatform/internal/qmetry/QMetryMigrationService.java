@@ -192,10 +192,13 @@ public class QMetryMigrationService {
                     if (isNewTestCase(row, indices)) {
                         if(testCase != null) {
                             if (!testCases.contains(testCase)) {
-                                testCases.add(testCase);
-                            } else if (isDifferentTCWithSameTCNameExists(testCases, testCase)) {
-                                testCase.setTC_NAME(testCase.getTC_NAME() + "Variante - " + testCases.size());
-                                testCase.setTC_PATH(testCase.getTC_PATH() + "Variante - " + testCases.size());
+                                if (isDifferentTCWithSameTCNameExists(testCases, testCase)) {
+                                    testCase.setTC_NAME(testCase.getTC_NAME() + " - Variante - " + testCases.size());
+                                    testCase.setTC_PATH(testCase.getTC_PATH() + " - Variante - " + testCases.size());
+                                    for(StepModel step : testCase.getSteps()){
+                                        step.setTC_OWNER_PATH(testCase.getTC_PATH());
+                                    }
+                                }
                                 testCases.add(testCase);
                             }
                         }
@@ -211,10 +214,13 @@ public class QMetryMigrationService {
                 i++;
             }
             if(! testCases.contains(testCase)) {
-                testCases.add(testCase);
-            } else if (isDifferentTCWithSameTCNameExists(testCases, testCase)) {
-                testCase.setTC_NAME(testCase.getTC_NAME() + "Variante - " + testCases.size());
-                testCase.setTC_PATH(testCase.getTC_PATH() + "Variante - " + testCases.size());
+                if (isDifferentTCWithSameTCNameExists(testCases, testCase)) {
+                    testCase.setTC_NAME(testCase.getTC_NAME() + " - Variante - " + testCases.size());
+                    testCase.setTC_PATH(testCase.getTC_PATH() + " - Variante - " + testCases.size());
+                    for(StepModel step : testCase.getSteps()){
+                        step.setTC_OWNER_PATH(testCase.getTC_PATH());
+                    }
+                }
                 testCases.add(testCase);
             }
             return testCases;
@@ -242,7 +248,10 @@ public class QMetryMigrationService {
         stepModel.setTC_STEP_ACTION(readCell(row.getCell(indices.get("Step Description"))));
         stepModel.setTC_STEP_EXPECTED_RESULT(readCell(row.getCell(indices.get("Step Expected Outcome"))));
         stepModel.setTC_OWNER_PATH(testCase.getTC_PATH());
-        return testCase.addStep(stepModel);
+        if(!(stepModel.getTC_STEP_ACTION().trim().isEmpty() && stepModel.getTC_STEP_EXPECTED_RESULT().trim().isEmpty() && stepModel.getTC_STEP_NUM().trim().isEmpty())) {
+            testCase.addStep(stepModel);
+        }
+        return testCase;
     }
 
     private static boolean isNewTestCase(Row row, Map<String, Integer> indices) {
@@ -318,6 +327,10 @@ public class QMetryMigrationService {
     }
 
     private static String readCell(Cell cell) {
+        if(cell == null){
+            LOGGER.warning("Cell is NULL");
+            return " ";
+        }
         String value;
         switch (cell.getCellType()) {
             case STRING:
